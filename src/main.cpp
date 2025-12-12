@@ -8,6 +8,7 @@
 #include <addons/TokenHelper.h>
 #include <addons/RTDBHelper.h>
 
+// TO DO: if esp does not connect to wifi for 1 day, go to sleep forever
 // Enable/disable sensors here
 // #define ENABLE_BME280      // BME280 temperature, pressure, humidity, altitude
 #define ENABLE_DHT11       // DHT11 temperature, humidity, heat index
@@ -137,26 +138,38 @@ void loop() {
 void connectToWiFi() {
   Serial.print("Connecting to WiFi: ");
   Serial.println(WIFI_SSID);
-  
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  
+
   int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+  const int MAX_ATTEMPTS = 20;      // 20 × 500 ms = 10 seconds timeout
+
+  while (WiFi.status() != WL_CONNECTED && attempts < MAX_ATTEMPTS) {
     delay(500);
     Serial.print(".");
     attempts++;
   }
-  
+
   Serial.println();
-  
+
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("WiFi Connected!");
     Serial.print("IP Address: ");
     Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("WiFi Connection Failed!");
-    Serial.println("Please check your credentials and restart.");
+    return;
   }
+
+  // ---- WiFi failed ----
+  Serial.println("WiFi Connection Failed!");
+  Serial.println("Entering deep sleep for 10 minutes...");
+
+  // 10 minutes = 10 × 60 × 1,000,000 microseconds
+  uint64_t sleepDuration = 1ULL * 6ULL * 1000000ULL;
+
+  esp_sleep_enable_timer_wakeup(sleepDuration);
+
+  Serial.flush();
+  esp_deep_sleep_start();
 }
 
 // Initialize Firebase
